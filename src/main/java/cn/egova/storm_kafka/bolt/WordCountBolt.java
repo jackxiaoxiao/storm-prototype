@@ -38,6 +38,6 @@ public class WordCountBolt extends BaseRichBolt {
     }
 
     public void declareOutputFields(OutputFieldsDeclarer declarer) {
-        declarer.declare(new Fields("word", "count"));
+        declarer.declare(new Fields("message", "processTime"));
     }
 }

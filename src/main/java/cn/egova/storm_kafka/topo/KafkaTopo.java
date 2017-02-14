@@ -9,6 +9,7 @@ import backtype.storm.spout.SchemeAsMultiScheme;
 import backtype.storm.topology.TopologyBuilder;
 import backtype.storm.tuple.Fields;
 import cn.egova.storm_kafka.bolt.MysqlBolt;
+import cn.egova.storm_kafka.bolt.ReportBolt;
 import cn.egova.storm_kafka.bolt.WordCountBolt;
 import cn.egova.storm_kafka.bolt.WordSpliter;
 import cn.egova.storm_kafka.spout.MessageScheme;
@@ -16,66 +17,74 @@ import storm.kafka.BrokerHosts;
 import storm.kafka.KafkaSpout;
 import storm.kafka.SpoutConfig;
 import storm.kafka.ZkHosts;
+import storm.kafka.bolt.KafkaBolt;
+import storm.kafka.bolt.mapper.FieldNameBasedTupleToKafkaMapper;
+import storm.kafka.bolt.selector.DefaultTopicSelector;
+import storm.kafka.trident.TridentKafkaState;
 
+import java.util.Properties;
+
+/**
+ * storm消费kafka的消息经过计算处理存入到kafka、MySQL中
+ * @Author tcb
+ */
 public class KafkaTopo {
 
+	private static final String KAFKA_SPOUT_ID = "kafkaspout";
+	private static final String SPLIT_BOLT_ID = "wordSplitBolt";
+	private static final String WORD_COUNT_BOLT_ID = "wordCountBolt";
+	private static final String REPORT_BOLLT_ID = "reportBolt";
+	private static final String MYSQL_BOLT_ID = "mysqlBolt";
+	private static final String KAFKA_BOLT_ID = "forwardToKafka";
+	private static final String CONSUME_TOPIC = "origin";
+	private static final String PRODUCT_TOPIC = "kafkatopic";
+	private static final String ZK_ROOT = "/kafka-storm";
+	private static final String ZK_ID = "wordcount";
+	private static final String DEFAULT_TOPOLOGY_NAME = "wordCountKafka";
+
 	public static void main(String[] args) throws Exception {
-		
-		String topic = "origin";
-		String zkRoot = "/kafka-storm";
-		String spoutId = "KafkaSpout";
-		BrokerHosts brokerHosts = new ZkHosts("dev17:2181,dev19:2181"); 
-		SpoutConfig spoutConfig = new SpoutConfig(brokerHosts, "origin", zkRoot, spoutId);
+
+
+		BrokerHosts brokerHosts = new ZkHosts("dev17:2181,dev19:2181");
+		SpoutConfig spoutConfig = new SpoutConfig(brokerHosts, CONSUME_TOPIC, ZK_ROOT, KAFKA_SPOUT_ID);
 		spoutConfig.forceFromStart = false;
 		spoutConfig.scheme = new SchemeAsMultiScheme(new MessageScheme());
 		TopologyBuilder builder = new TopologyBuilder();
-		builder.setSpout("KafkaSpout", new KafkaSpout(spoutConfig),2);
-		builder.setBolt("word-spilter", new WordSpliter(),2).shuffleGrouping(spoutId);
-		builder.setBolt("WordCountBolt", new WordCountBolt(),4).fieldsGrouping("word-spilter", new Fields("message"));
-		builder.setBolt("mysql", new MysqlBolt(),4).fieldsGrouping("WordCountBolt", new Fields("word", "count"));
+		builder.setSpout(KAFKA_SPOUT_ID, new KafkaSpout(spoutConfig),3);
+		builder.setBolt(SPLIT_BOLT_ID, new WordSpliter(),2).shuffleGrouping(KAFKA_SPOUT_ID);
+		builder.setBolt(WORD_COUNT_BOLT_ID, new WordCountBolt(),4).fieldsGrouping(SPLIT_BOLT_ID, new Fields("message"));
+		builder.setBolt(REPORT_BOLLT_ID,new ReportBolt(),2).shuffleGrouping(WORD_COUNT_BOLT_ID);
+		builder.setBolt(MYSQL_BOLT_ID, new MysqlBolt(),4).fieldsGrouping(WORD_COUNT_BOLT_ID, new Fields("message", "processTime"));
 //		builder.setBolt("writer", new WriterBolt(), 4).fieldsGrouping("word-spilter", new Fields("word"));
-		//1. KafkaBolt的前置组件emit出来的(可以是spout也可以是bolt)
-////		Spout spout = new Spout(new Fields("key", "message"));
-//		WordCountBolt wc=new WordCountBolt(new Fields("key","message"));
-//		builder.setBolt("spout", wc);
-		//2. 给KafkaBolt配置topic及前置tuple消息到kafka的mapping关系
-	/*	KafkaBolt bolt = new KafkaBolt();
-		bolt.withTopicSelector(new DefaultTopicSelector("kafkatopic"))
+     	KafkaBolt bolt = new KafkaBolt();
+		bolt.withTopicSelector(new DefaultTopicSelector(PRODUCT_TOPIC))
 				.withTupleToKafkaMapper(new FieldNameBasedTupleToKafkaMapper());
-		builder.setBolt("forwardToKafka", bolt, 1).shuffleGrouping("WordCountBolt");
-
+		builder.setBolt(KAFKA_BOLT_ID, bolt, 1).shuffleGrouping(REPORT_BOLLT_ID);
 		Config conf = new Config();
 		//3. 设置kafka producer的配置
 		Properties props = new Properties();
-		props.put("metadata.broker.list", "192.168.101.17:9092");
+		props.put("metadata.broker.list", "192.168.101.19:9092");
 		props.put("producer.type","async");
 		props.put("request.required.acks", "0"); // 0 ,-1 ,1
 		props.put("serializer.class", "kafka.serializer.StringEncoder");
 		conf.put(TridentKafkaState.KAFKA_BROKER_PROPERTIES, props);
-		conf.put("topic","kafkatopic");*/
-		Config conf = new Config();
+		conf.put("topic",PRODUCT_TOPIC);
 		conf.setNumWorkers(3);
 //		conf.setNumAckers(0);
-		conf.setDebug(false);
+		conf.setDebug(true);
 		if(args.length > 0){
 			// cluster submit.
 			try {
-				StormSubmitter.submitTopology("kafkaboltTest", conf, builder.createTopology());
+				StormSubmitter.submitTopology(DEFAULT_TOPOLOGY_NAME, conf, builder.createTopology());
 			} catch (AlreadyAliveException e) {
 				e.printStackTrace();
 			} catch (InvalidTopologyException e) {
 				e.printStackTrace();
 			}
 		}else{
-			new LocalCluster().submitTopology("WordCount", conf, builder.createTopology());
+			new LocalCluster().submitTopology(DEFAULT_TOPOLOGY_NAME, conf, builder.createTopology());
 		}
 
 	}
-	
-	/*	LocalCluster cluster = new LocalCluster();
-		cluster.submitTopology("WordCount", conf, builder.createTopology());*/
-		
-		//提交topology到storm集群中运行
-//		StormSubmitter.submitTopology("sufei-topo", conf, builder.createTopology());
 
 }

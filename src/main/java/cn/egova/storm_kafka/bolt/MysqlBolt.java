@@ -17,16 +17,14 @@ public class MysqlBolt extends BaseRichBolt{
 	private OutputCollector collector;
 	Connection conn = null;
 	String from = "stormkafka"; //表名
-	private String word;
-	private Number num;
+	private String message;
+	private Number processTime;
 	//private String endtime;
 	@Override
 	public void declareOutputFields(OutputFieldsDeclarer arg0) {
 		// TODO Auto-generated method stub
 		
 	}
-
-
 
 	@Override
 	public void prepare(@SuppressWarnings("rawtypes") Map conf, TopologyContext context, OutputCollector collector) {
@@ -64,21 +62,21 @@ public class MysqlBolt extends BaseRichBolt{
 	@Override
 	public void execute(Tuple tuple) {
 		// TODO Auto-generated method stub
-		String word= tuple.getString(0);
-		Number num = tuple.getLong(1);
+		String message= tuple.getString(0);
+		Number processTime = tuple.getLong(1);
 
-		InsertDB(word, num);
+		InsertDB(message, processTime);
 	}
 
-	private void InsertDB(String word, Number num) {
+	private void InsertDB(String message, Number processTime) {
 		// TODO Auto-generated method stub
 		String sql =null;
-		 sql = "insert into " + this.from+ "(word, num) values ('" +word+"',"+num+ ")";
-		String selectSql = MessageFormat.format("select * from stormkafka where word = {0} and num = {1}", "'"+word+"'",""+num+"");
-		String uadateSql = MessageFormat.format("update stormkafka set word = {0} where num = {1}", "'"+word+"'",""+num+"");
+		sql = "insert into " + this.from+ "(message,processTime) values ('" +message+"',"+processTime+ ")";
+		String selectSql = MessageFormat.format("select * from stormkafka where message = {0} and processTime = {1}", "'"+message+"'",""+processTime+"");
+		String uadateSql = MessageFormat.format("update stormkafka set message = {0} where processTime = {1}", "'"+message+"'",""+processTime+"");
 		try {
 		    Statement	statement = conn.createStatement();
-//			statement.executeUpdate(sql);
+			statement.executeUpdate(sql);
 			ResultSet rs =  statement.executeQuery(selectSql);
 			if(rs.next()){//更新
 				statement.executeUpdate(uadateSql);
