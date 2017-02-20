@@ -38,7 +38,7 @@ public class TodayHotCaseType extends BaseRichBolt {
         StringBuilder stringBuilder = new StringBuilder();
         Map<String, Integer> stringIntegerMap = sortByValue(result);
         for (Map.Entry<String, Integer> entry : stringIntegerMap.entrySet()) {
-            stringBuilder.append(entry.getKey() + "" + entry.getValue() + ";");
+            stringBuilder.append(entry.getKey() + "," + entry.getValue() + ";");
         }
         this.collector.emit(new Values(String.format("%s#%s", "今日高发", stringBuilder)));
     }
