@@ -8,10 +8,7 @@ import backtype.storm.generated.InvalidTopologyException;
 import backtype.storm.spout.SchemeAsMultiScheme;
 import backtype.storm.topology.TopologyBuilder;
 import backtype.storm.tuple.Fields;
-import cn.egova.storm_kafka.bolt.MysqlBolt;
-import cn.egova.storm_kafka.bolt.ReportBolt;
-import cn.egova.storm_kafka.bolt.WordCountBolt;
-import cn.egova.storm_kafka.bolt.WordSpliter;
+import cn.egova.storm_kafka.bolt.*;
 import cn.egova.storm_kafka.spout.MessageScheme;
 import storm.kafka.BrokerHosts;
 import storm.kafka.KafkaSpout;
@@ -25,7 +22,7 @@ import storm.kafka.trident.TridentKafkaState;
 import java.util.Properties;
 
 /**
- * storm集群远程提交方式
+ * storm从kafka消费经过计算处理到kafka、redis、MySQL数据库中。
  * @Author tcb.
  */
 public class kafkaToplogy {
@@ -36,6 +33,9 @@ public class kafkaToplogy {
     private static final String REPORT_BOLLT_ID = "reportBolt";
     private static final String MYSQL_BOLT_ID = "mysqlBolt";
     private static final String KAFKA_BOLT_ID = "forwardToKafka";
+    private static final String REDIS_BOLT_ID= "redisBolt";
+    private static final String PYTHON_BOLT_IDA="pythonBoltA";
+    private static final String PYTHON_BOLT_IDB="pythonBoltB";
     private static final String CONSUME_TOPIC = "origin";
     private static final String PRODUCT_TOPIC = "kafkatopic";
     private static final String ZK_ROOT = "/kafka-storm";
@@ -44,8 +44,7 @@ public class kafkaToplogy {
 
     public static void main(String[] args) throws Exception {
 
-
-        BrokerHosts brokerHosts = new ZkHosts("dev17:2181,dev19:2181");
+        BrokerHosts brokerHosts = new ZkHosts("192.168.101.17:2181,192.168.101.19:2181,192.168.101.20:2181");
         SpoutConfig spoutConfig = new SpoutConfig(brokerHosts, CONSUME_TOPIC, ZK_ROOT, KAFKA_SPOUT_ID);
         spoutConfig.forceFromStart = false;
         spoutConfig.scheme = new SchemeAsMultiScheme(new MessageScheme());
@@ -54,6 +53,9 @@ public class kafkaToplogy {
         builder.setBolt(SPLIT_BOLT_ID, new WordSpliter(),2).shuffleGrouping(KAFKA_SPOUT_ID);
         builder.setBolt(WORD_COUNT_BOLT_ID, new WordCountBolt(),4).fieldsGrouping(SPLIT_BOLT_ID, new Fields("message"));
         builder.setBolt(REPORT_BOLLT_ID,new ReportBolt(),2).shuffleGrouping(WORD_COUNT_BOLT_ID);
+        builder.setBolt(REDIS_BOLT_ID,new redisBolt(),2).shuffleGrouping(REPORT_BOLLT_ID);
+        builder.setBolt(PYTHON_BOLT_IDA,new PythonBoltA(),2).shuffleGrouping(REPORT_BOLLT_ID);
+        builder.setBolt(PYTHON_BOLT_IDB,new PythonBoltB(),2).shuffleGrouping(PYTHON_BOLT_IDA);
         builder.setBolt(MYSQL_BOLT_ID, new MysqlBolt(),4).fieldsGrouping(WORD_COUNT_BOLT_ID, new Fields("message", "processTime"));
 //		builder.setBolt("writer", new WriterBolt(), 4).fieldsGrouping("word-spilter", new Fields("word"));
         KafkaBolt bolt = new KafkaBolt();
@@ -63,7 +65,7 @@ public class kafkaToplogy {
         Config conf = new Config();
         //3. 设置kafka producer的配置
         Properties props = new Properties();
-        props.put("metadata.broker.list", "192.168.101.19:9092");
+        props.put("metadata.broker.list", "192.168.101.17:9092,192.168.101.19:9092,192.168.101.20:9092");
         props.put("producer.type","async");
         props.put("request.required.acks", "0"); // 0 ,-1 ,1
         props.put("serializer.class", "kafka.serializer.StringEncoder");
