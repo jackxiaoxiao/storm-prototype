@@ -2,8 +2,6 @@ package cn.egova.storm_kafka.bolt;
 
 import java.sql.*;
 import java.text.MessageFormat;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.Map;
 
 import backtype.storm.task.OutputCollector;
@@ -19,7 +17,6 @@ public class MysqlBolt extends BaseRichBolt{
 	String from = "stormkafka"; //表名
 	private String message;
 	private Number processTime;
-	//private String endtime;
 	@Override
 	public void declareOutputFields(OutputFieldsDeclarer arg0) {
 		// TODO Auto-generated method stub
@@ -62,8 +59,8 @@ public class MysqlBolt extends BaseRichBolt{
 	@Override
 	public void execute(Tuple tuple) {
 		// TODO Auto-generated method stub
-		String message= tuple.getString(0);
-		Number processTime = tuple.getLong(1);
+		 message= tuple.getString(0);
+		 processTime = tuple.getLong(1);
 
 		InsertDB(message, processTime);
 	}

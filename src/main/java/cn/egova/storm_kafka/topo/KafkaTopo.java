@@ -1,10 +1,7 @@
 package cn.egova.storm_kafka.topo;
 
 import backtype.storm.Config;
-import backtype.storm.LocalCluster;
 import backtype.storm.StormSubmitter;
-import backtype.storm.generated.AlreadyAliveException;
-import backtype.storm.generated.InvalidTopologyException;
 import backtype.storm.spout.SchemeAsMultiScheme;
 import backtype.storm.topology.TopologyBuilder;
 import backtype.storm.tuple.Fields;
@@ -30,9 +27,9 @@ import java.util.Properties;
 public class KafkaTopo {
 
 	private static final String KAFKA_SPOUT_ID = "kafkaspout";
-	private static final String SPLIT_BOLT_ID = "wordSplitBolt";
-	private static final String WORD_COUNT_BOLT_ID = "wordCountBolt";
-	private static final String REPORT_BOLLT_ID = "reportBolt";
+	private static final String SPLIT_BOLT_ID = "msgSplitBolt";
+	private static final String MSG_CAL_BOLT_ID = "msgCalBolt";
+	private static final String REPORT_BOLT_ID = "reportBolt";
 	private static final String MYSQL_BOLT_ID = "mysqlBolt";
 	private static final String KAFKA_BOLT_ID = "forwardToKafka";
 	private static final String REDIS_BOLT_ID= "redisBolt";
@@ -41,8 +38,7 @@ public class KafkaTopo {
 	private static final String CONSUME_TOPIC = "origin";
 	private static final String PRODUCT_TOPIC = "kafkatopic";
 	private static final String ZK_ROOT = "/kafka-storm";
-	private static final String ZK_ID = "wordcount";
-	private static final String DEFAULT_TOPOLOGY_NAME = "wordCountKafka";
+	private static final String DEFAULT_TOPOLOGY_NAME = "msgCalTime";
 	/**
 	 * 远程提交服务器参数定义
 	 */
@@ -61,17 +57,17 @@ public class KafkaTopo {
 		spoutConfig.scheme = new SchemeAsMultiScheme(new MessageScheme());
 		TopologyBuilder builder = new TopologyBuilder();
 		builder.setSpout(KAFKA_SPOUT_ID, new KafkaSpout(spoutConfig),3);
-		builder.setBolt(SPLIT_BOLT_ID, new WordSpliter(),2).shuffleGrouping(KAFKA_SPOUT_ID);
-		builder.setBolt(WORD_COUNT_BOLT_ID, new WordCountBolt(),4).fieldsGrouping(SPLIT_BOLT_ID, new Fields("message"));
-		builder.setBolt(REPORT_BOLLT_ID,new ReportBolt(),2).shuffleGrouping(WORD_COUNT_BOLT_ID);
-		builder.setBolt(PYTHON_BOLT_IDA,new PythonBoltA(),2).shuffleGrouping(REPORT_BOLLT_ID);
+		builder.setBolt(SPLIT_BOLT_ID, new MsgSpliter(),2).shuffleGrouping(KAFKA_SPOUT_ID);
+		builder.setBolt(MSG_CAL_BOLT_ID, new MsgCalBolt(),4).fieldsGrouping(SPLIT_BOLT_ID, new Fields("message"));
+		builder.setBolt(REPORT_BOLT_ID,new ReportBolt(),2).shuffleGrouping(MSG_CAL_BOLT_ID);
+		builder.setBolt(REDIS_BOLT_ID,new redisBolt(),2).shuffleGrouping(REPORT_BOLT_ID);
+		builder.setBolt(PYTHON_BOLT_IDA,new PythonBoltA(),2).shuffleGrouping(REPORT_BOLT_ID);
 		builder.setBolt(PYTHON_BOLT_IDB,new PythonBoltB(),2).shuffleGrouping(PYTHON_BOLT_IDA);
-		builder.setBolt(MYSQL_BOLT_ID, new MysqlBolt(),4).fieldsGrouping(WORD_COUNT_BOLT_ID, new Fields("message", "processTime"));
-//		builder.setBolt("writer", new WriterBolt(), 4).fieldsGrouping("word-spilter", new Fields("word"));
+		builder.setBolt(MYSQL_BOLT_ID, new MysqlBolt(),4).fieldsGrouping(MSG_CAL_BOLT_ID, new Fields("message", "processTime"));
      	KafkaBolt bolt = new KafkaBolt();
 		bolt.withTopicSelector(new DefaultTopicSelector(PRODUCT_TOPIC))
 				.withTupleToKafkaMapper(new FieldNameBasedTupleToKafkaMapper());
-		builder.setBolt(KAFKA_BOLT_ID, bolt, 1).shuffleGrouping(REPORT_BOLLT_ID);
+		builder.setBolt(KAFKA_BOLT_ID, bolt, 1).shuffleGrouping(REPORT_BOLT_ID);
 		Config conf = new Config();
 		//3. 设置kafka producer的配置
 		Properties props = new Properties();
@@ -81,9 +77,6 @@ public class KafkaTopo {
 		props.put("serializer.class", "kafka.serializer.StringEncoder");
 		conf.put(TridentKafkaState.KAFKA_BROKER_PROPERTIES, props);
 		conf.put("topic",PRODUCT_TOPIC);
-//		conf.setNumWorkers(3);
-//		conf.setNumAckers(0);
-//		conf.setDebug(true);
 		/**
 		 * 远程集群提交方式
 		 */
@@ -94,7 +87,7 @@ public class KafkaTopo {
 		conf.setDebug(isDebug);
 		conf.setNumWorkers(3);
 		System.setProperty("storm.jar","E:\\数字政通\\stormTokafka\\storm-example-master\\classes\\artifacts\\storm_example_jar\\storm-example.jar");
-		StormSubmitter.submitTopology("kafkatest", conf, builder.createTopology());
+		StormSubmitter.submitTopology(DEFAULT_TOPOLOGY_NAME, conf, builder.createTopology());
 	/*	*//**
 		 * 本地提交方式、集群提交方式
 		 *//*

@@ -14,9 +14,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Map;
 
-/**
- * Created by Admin on 2017/2/17.
- */
 public class PythonBoltA extends BaseRichBolt {
     private OutputCollector collector;
     private int flag;

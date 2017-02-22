@@ -9,7 +9,7 @@ import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Tuple;
 import backtype.storm.tuple.Values;
 
-public class WordSpliter extends BaseRichBolt{
+public class MsgSpliter extends BaseRichBolt{
     private OutputCollector collector;
 
     public void prepare(Map config, TopologyContext context, OutputCollector collector) {

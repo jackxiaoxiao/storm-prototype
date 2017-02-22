@@ -12,7 +12,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
-public class WordCountBolt extends BaseRichBolt {
+public class MsgCalBolt extends BaseRichBolt {
     private OutputCollector collector;
     private HashMap<String, Long> counts = null;
     private long endTime;

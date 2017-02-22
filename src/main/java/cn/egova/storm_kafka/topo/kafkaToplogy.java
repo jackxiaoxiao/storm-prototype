@@ -28,9 +28,9 @@ import java.util.Properties;
 public class kafkaToplogy {
 
     private static final String KAFKA_SPOUT_ID = "kafkaspout";
-    private static final String SPLIT_BOLT_ID = "wordSplitBolt";
-    private static final String WORD_COUNT_BOLT_ID = "wordCountBolt";
-    private static final String REPORT_BOLLT_ID = "reportBolt";
+    private static final String SPLIT_BOLT_ID = "msgSplitBolt";
+    private static final String MSG_CAL_BOLT_ID = "msgCalBolt";
+    private static final String REPORT_BOLT_ID = "reportBolt";
     private static final String MYSQL_BOLT_ID = "mysqlBolt";
     private static final String KAFKA_BOLT_ID = "forwardToKafka";
     private static final String REDIS_BOLT_ID= "redisBolt";
@@ -39,29 +39,27 @@ public class kafkaToplogy {
     private static final String CONSUME_TOPIC = "origin";
     private static final String PRODUCT_TOPIC = "kafkatopic";
     private static final String ZK_ROOT = "/kafka-storm";
-    private static final String ZK_ID = "wordcount";
-    private static final String DEFAULT_TOPOLOGY_NAME = "wordCountKafka";
+    private static final String DEFAULT_TOPOLOGY_NAME = "msgCalTime";
 
     public static void main(String[] args) throws Exception {
 
-        BrokerHosts brokerHosts = new ZkHosts("192.168.101.17:2181,192.168.101.19:2181,192.168.101.20:2181");
+        BrokerHosts brokerHosts = new ZkHosts("dev17:2181,dev19:2181");
         SpoutConfig spoutConfig = new SpoutConfig(brokerHosts, CONSUME_TOPIC, ZK_ROOT, KAFKA_SPOUT_ID);
         spoutConfig.forceFromStart = false;
         spoutConfig.scheme = new SchemeAsMultiScheme(new MessageScheme());
         TopologyBuilder builder = new TopologyBuilder();
         builder.setSpout(KAFKA_SPOUT_ID, new KafkaSpout(spoutConfig),3);
-        builder.setBolt(SPLIT_BOLT_ID, new WordSpliter(),2).shuffleGrouping(KAFKA_SPOUT_ID);
-        builder.setBolt(WORD_COUNT_BOLT_ID, new WordCountBolt(),4).fieldsGrouping(SPLIT_BOLT_ID, new Fields("message"));
-        builder.setBolt(REPORT_BOLLT_ID,new ReportBolt(),2).shuffleGrouping(WORD_COUNT_BOLT_ID);
-        builder.setBolt(REDIS_BOLT_ID,new redisBolt(),2).shuffleGrouping(REPORT_BOLLT_ID);
-        builder.setBolt(PYTHON_BOLT_IDA,new PythonBoltA(),2).shuffleGrouping(REPORT_BOLLT_ID);
+        builder.setBolt(SPLIT_BOLT_ID, new MsgSpliter(),2).shuffleGrouping(KAFKA_SPOUT_ID);
+        builder.setBolt(MSG_CAL_BOLT_ID, new MsgCalBolt(),4).fieldsGrouping(SPLIT_BOLT_ID, new Fields("message"));
+        builder.setBolt(REPORT_BOLT_ID,new ReportBolt(),2).shuffleGrouping(MSG_CAL_BOLT_ID);
+        builder.setBolt(REDIS_BOLT_ID,new redisBolt(),2).shuffleGrouping(REPORT_BOLT_ID);
+        builder.setBolt(PYTHON_BOLT_IDA,new PythonBoltA(),2).shuffleGrouping(REPORT_BOLT_ID);
         builder.setBolt(PYTHON_BOLT_IDB,new PythonBoltB(),2).shuffleGrouping(PYTHON_BOLT_IDA);
-        builder.setBolt(MYSQL_BOLT_ID, new MysqlBolt(),4).fieldsGrouping(WORD_COUNT_BOLT_ID, new Fields("message", "processTime"));
-//		builder.setBolt("writer", new WriterBolt(), 4).fieldsGrouping("word-spilter", new Fields("word"));
+        builder.setBolt(MYSQL_BOLT_ID, new MysqlBolt(),4).fieldsGrouping(MSG_CAL_BOLT_ID, new Fields("message", "processTime"));
         KafkaBolt bolt = new KafkaBolt();
         bolt.withTopicSelector(new DefaultTopicSelector(PRODUCT_TOPIC))
                 .withTupleToKafkaMapper(new FieldNameBasedTupleToKafkaMapper());
-        builder.setBolt(KAFKA_BOLT_ID, bolt, 1).shuffleGrouping(REPORT_BOLLT_ID);
+        builder.setBolt(KAFKA_BOLT_ID, bolt, 1).shuffleGrouping(REPORT_BOLT_ID);
         Config conf = new Config();
         //3. 设置kafka producer的配置
         Properties props = new Properties();
@@ -72,7 +70,6 @@ public class kafkaToplogy {
         conf.put(TridentKafkaState.KAFKA_BROKER_PROPERTIES, props);
         conf.put("topic",PRODUCT_TOPIC);
         conf.setNumWorkers(3);
-//		conf.setNumAckers(0);
         conf.setDebug(true);
         if(args.length > 0){
             // cluster submit.
