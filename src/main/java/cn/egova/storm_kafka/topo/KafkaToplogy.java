@@ -25,7 +25,7 @@ import java.util.Properties;
  * storm从kafka消费经过计算处理到kafka、redis、MySQL数据库中。
  * @Author tcb.
  */
-public class kafkaToplogy {
+public class KafkaToplogy {
 
     private static final String KAFKA_SPOUT_ID = "kafkaspout";
     private static final String SPLIT_BOLT_ID = "msgSplitBolt";

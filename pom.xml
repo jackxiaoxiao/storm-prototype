@@ -13,7 +13,7 @@
             <groupId>org.apache.storm</groupId>
             <artifactId>storm-core</artifactId>
             <version>0.9.3</version>
-           <!-- <scope>provided</scope>-->
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -78,6 +78,11 @@
                 </exclusion>
             </exclusions>
         </dependency>
+        <dependency>
+            <groupId>com.googlecode.json-simple</groupId>
+            <artifactId>json-simple</artifactId>
+            <version>1.1.1</version>
+        </dependency>
     </dependencies>
 
 
@@ -131,8 +136,8 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.1</version>
                 <configuration>
-                    <source>1.6</source>
-                    <target>1.6</target>
+                    <source>1.8</source>
+                    <target>1.8</target>
                     <encoding>UTF-8</encoding>
                     <showDeprecation>true</showDeprecation>
                     <showWarnings>true</showWarnings>
@@ -146,7 +151,7 @@
                     </descriptorRefs>
                     <archive>
                         <manifest>
-                            <mainClass></mainClass>
+                            <mainClass>cn.egova.storm_kafka.topo.KafkaToplogy</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
