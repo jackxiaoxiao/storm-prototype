@@ -1,5 +1,3 @@
-# storm-example
-storm-example
-
-## storm-kafka
+# 项目说明
+- 此项目用于存放项目开发分支
 
